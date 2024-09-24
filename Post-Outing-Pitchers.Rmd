@@ -1,0 +1,622 @@
+---
+output:
+  pdf_document: 
+    latex_engine: xelatex
+    extra_dependencies: float
+header-includes:
+ - \newfontfamily\headingfont{NCAA_Missouri_Tigers.otf}
+fontsize: 10pt
+params:
+  player: "Jacobi, Kaden"
+---
+
+
+```{r setup, echo= FALSE, warning= FALSE, output = FALSE, include= FALSE}
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(knitr)
+library(tinytex)
+library(kableExtra)
+library(gridExtra)
+library(caret)
+library(ggpubr)
+
+#game <- read.csv("C:/Users/alexi/OneDrive/Documents/Mizzou Baseball Spring 2024/Reports/Post Outing Reports/spring_2024TM_stadium_local.csv")
+
+#game <- read.csv("C:/Users/alexi/OneDrive/Documents/Mizzou Baseball Spring 2024/Reports/Post Outing Reports/allSEC.csv")
+
+#game <- params$file
+
+#game <- read.csv("C:/Users/alexi/downloads/jacobi fall.csv")
+#View(game)
+
+game <- read.csv("C:/Users/alexi/OneDrive/Documents/Mizzou Baseball Spring 2024/F2024 Scrimmages/week3.csv")
+
+#game <- read.csv("C:/Users/alexi/OneDrive/Documents/Tri-State 2024/all_appy_games.csv")
+
+#Rearranging the name
+name_parts <- strsplit(params$player, ", ")[[1]]
+lastname <- name_parts[1]
+firstname <- name_parts[2]
+full_name <- paste(firstname, lastname)
+```
+\begin{center}
+{\headingfont\fontsize{24}{28}\selectfont `r full_name`}
+\end{center}
+```{r game scores, echo= FALSE, include= FALSE, out.width= '100%'}
+#keeping only relevant pitches
+game<-game %>%
+  filter(!taggedpitchtype %in% c('Other','Undefined'))%>%
+  filter(!is.na(platelocside) & !is.na(platelocheight))%>%
+  mutate(Count = paste(balls, strikes, sep = "-"))
+
+#creating / modifying variables for table output
+game$RelSpeed = as.numeric(game$relspeed)
+game$ExitSpeed = as.numeric(game$exitspeed)
+game$SpinRate = as.numeric(game$spinrate)
+game$HorzBreak = as.numeric(game$horzbreak)
+game$InducedVertBreak = as.numeric(game$inducedvertbreak)
+game$RelHeight = as.numeric(game$relheight)
+game$RelSide = as.numeric(game$relside)
+game$VertApprAngle = as.numeric(game$vertapprangle)
+game$HorzApprAngle = as.numeric(game$horzapprangle)
+game$Extension = as.numeric(game$extension)
+game$vy0 = as.numeric(game$vy0)
+game$vz0 = as.numeric(game$vz0)
+game$ay0 = as.numeric(game$ay0)
+game$ax0 = as.numeric(game$ax0)
+game$az0 = as.numeric(game$az0)
+game$PlateLocHeight = as.numeric(game$platelocheight)
+
+#setting color pallete 
+palette<-rep(c("Fastball" = "goldenrod2", "Sinker" = "deepskyblue4", "Slider" = "red", "ChangeUp" = "forestgreen", "Curveball" = "violetred3", "Cutter" = "purple3", "Splitter" = "pink1", "Knuckleball" = "wheat3", "Undefined" = "black", "Other" = "gray52", "Sweeper" = "yellow2"))
+
+
+```
+
+```{r line table, fig.pos = "hold_position", echo = FALSE,warning=FALSE, fig.align="center", out.width='100%'}
+#setting player to desired pitcher
+Player=params$player
+
+#filtering game to only include the pitcher
+game = game %>%
+   filter(pitcher==params$player)
+
+#View(game)
+
+game$Single = ifelse(game$playresult == "Single",1,0)
+game$Double = ifelse(game$playresult == "Double",1,0)
+game$Triple = ifelse(game$playresult == "Triple",1,0)
+game$HomeRun = ifelse(game$playresult == "HomeRun",1,0)
+game$Out = ifelse(game$playresult == "Out" | game$playresult == "FieldersChoice",1,0)
+game$RBOE = ifelse(game$playresult == "Error",1,0)
+game$BB = ifelse(game$korbb == "Walk",1,0)
+game$HBP = ifelse(game$pitchcall == "HitByPitch",1,0)
+game$K = ifelse(game$korbb == "Strikeout",1,0)
+game$SAC = ifelse(game$playresult == "Sacrifice",1,0)
+game$StrikesThrown = game$pitchcall %in% c("StrikeCalled", "StrikeSwinging", "FoulBallNotFieldable", "InPlay")
+game$BallsThrown = game$pitchcall %in% c("BallCalled")
+game$PA = game$Single + game$Double + game$Triple + game$HomeRun + game$Out + game$RBOE +
+  game$BB + game$HBP + game$K + game$SAC
+
+game$AB = game$Single + game$Double + game$Triple + game$HomeRun + game$Out + game$K
+
+game$BF=ifelse(game$playresult!="Undefined" | game$korbb != 'Undefined',1,0)
+game$"PitchCount"=ifelse(game$pitcher!="",1,0)
+
+
+#Create prelim table of basic stats
+game1=game%>%
+  filter(balls==0 & strikes == 0)
+
+game1$"firstpitchstrike"=ifelse(game1$pitchcall=="StrikeCalled" | game1$pitchcall=="StrikeSwinging" |game1$pitchcall=="InPlay" |game1$pitchcall=="FoulBallNotFieldable",1,0)
+
+FirstPitch = sum(game1$pitchofpa)
+PitchCount = sum(game$PitchCount)
+
+#first table
+gamescores = game %>%
+  summarise(
+    "BF/P" = paste(sum(BF),sum(PitchCount), sep = "/"),
+    "Strikes/Balls" = paste(sum(StrikesThrown), sum(BallsThrown), sep = "/"),
+    "First Pitch Strikes" = 
+      sum(game1$"firstpitchstrike"),
+    PA = sum(PA),
+    AB = sum(AB),
+    "H" = (sum(Single)+sum(Double)+sum(Triple)+sum(HomeRun)),
+    "1B" = sum(Single),
+    "2B" = sum(Double),
+    "3B" = sum(Triple),
+    "HR" = sum(HomeRun),
+    "BB" = sum(BB),
+    "HBP" = sum(HBP),
+    "Out" = sum(Out),
+    K = sum(K),
+    AVG = round((sum(Single)+sum(Double)+sum(Triple)+sum(HomeRun))/sum(AB), digits = 3),
+    OBP = round((sum(Single)+sum(Double)+sum(Triple)+sum(HomeRun)+sum(RBOE)+sum(BB)+sum(HBP))/sum(PA), digits = 3),
+    SLG = round((sum(Single)+sum(Double)*2+sum(Triple)*3+sum(HomeRun)*4)/sum(AB), 
+                digits = 3)
+  )
+
+#adding FPStrike and K% variables to table
+  gamescores$"FPStrike"=paste(round((gamescores$`First Pitch Strikes`/sum(game$BF))*100, digits = 0),"%",sep="")
+  
+  gamescores$"K%"=paste(round((sum(game$StrikesThrown)/PitchCount)*100, digits = 0),"%",
+    sep="")
+
+```
+
+```{r pitch breakdown, fig.pos = "hold_position", echo = FALSE,warning=FALSE, fig.align="center", out.width='100%'}
+
+#assigning a new dataframe to manipulate
+dat <- game
+#View(dat)
+
+#creating necessary variables in dat
+dat$"PitchCount"=ifelse(dat$pitcher!="",1,0)
+dat$"Pitch Type" = dat$taggedpitchtype
+dat$"IZ" = ifelse(dat$platelocheight<=3.5 & dat$platelocheight>=1.5 & dat$platelocside <= 0.83 & dat$platelocside >= -0.83,1,0)
+dat$"Swing" = ifelse(dat$pitchcall == 'StrikeSwinging' | dat$pitchcall == 'FoulBallNotFieldable' | dat$"pitchcall" == 'InPlay',1,0)
+dat$"Whiff" = ifelse(dat$Swing == 1 & dat$pitchcall == 'StrikeSwinging',1,0)
+
+#filtering dataframe to be what is displayed on table
+pitchbreakdown <- dat|>
+  group_by(`Pitch Type`)|>
+  summarize(
+    Count = sum(PitchCount),
+    Velo = paste(round(quantile(RelSpeed,.25, na.rm=TRUE),
+          digits = 0),round(quantile(RelSpeed,.75,na.rm = TRUE),digits = 0), sep="-"),
+    Top = round(max(RelSpeed, na.rm=TRUE),digits = 2),
+    Spin = round(mean(SpinRate, na.rm = TRUE), digits = 0), 
+    IVB = round(mean(InducedVertBreak, na.rm= TRUE), digits = 2),
+    HB = round(mean(HorzBreak, na.rm= TRUE), digits = 2),
+    "Z%" = paste(round(sum(IZ, na.rm = TRUE)/sum(PitchCount, na.rm = TRUE)*100, 
+                       digits = 0), "%",sep = ""),
+    "Whiff%" = ifelse(sum(Swing, na.rm = TRUE) > 0,
+      paste(100 * round(sum(Whiff, na.rm = TRUE) / sum(Swing, na.rm = TRUE), digits = 2), 
+            '%', sep = ''),'0%')
+  )
+```
+
+```{r break chart, echo= FALSE}
+#creating the break chart
+breakChart <- ggplot(game, aes(x=HorzBreak,y=InducedVertBreak, color= taggedpitchtype,))+
+  labs(x="Horizontal Break", y= "Induced Vertical Break", color= "Pitch Type")+
+  xlim(-30,30)+ylim(-30,30)+
+  geom_hline(yintercept=0)+
+  geom_vline(xintercept=0)+
+  geom_point()+
+  coord_fixed(ratio = 1)+
+  scale_color_manual(values=palette)+
+  theme_bw() 
+```
+
+```{r strike zone, echo= FALSE, message= FALSE, warning= FALSE, out.height= '85%', out.width= '85%'}
+
+# creating strike zone
+strikezone <- ggplot(data = game, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+    geom_point(data = game, aes(color = taggedpitchtype), size= 2)+
+    scale_color_manual(values=palette)+
+    scale_size(range = c(0.01,3))+
+    geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+              fill = "transparent",size=1.1)+
+    geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+              linetype = "dashed", fill = "transparent")+
+    geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size = 0.5, 
+                 color = "black")+
+    geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size = 0.5,
+                 color = "black")+
+    geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+    geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+    geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, 
+                 color = "black")+
+    coord_equal()+
+    scale_x_continuous(limits = c(-2,2))+
+    scale_y_continuous(limits = c(0,5))+
+    theme_bw()+  
+    coord_fixed(ratio = 1)+
+    labs(color= "Pitch Type")+
+    theme(axis.title = element_blank(), axis.ticks = element_blank(), axis.text = element_blank(),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+    ggtitle("Strike Zone")
+```
+
+```{r rel chart, echo= FALSE, message= FALSE, warning= FALSE}
+
+#chart with release height and release side
+relChart <- 
+  ggplot()+geom_point(data= game, aes(x= RelSide, y= RelHeight, color= taggedpitchtype))+
+  xlim(-4,4)+
+  ylim(0,8)+
+  geom_vline(xintercept=0, linetype= "dashed")+
+  theme_bw()+ 
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 1), 
+        legend.position = "none")+ 
+  xlab("Release side (feet)")+
+  ylab("Release height (feet)")+
+  labs(color= "Pitch Type")+
+  ggtitle("Release Chart")+
+  scale_color_manual(values= palette)
+```
+
+```{r all whiffs heat map, echo= FALSE, message= FALSE, warning= FALSE, out.height= '75%', out.width = '100%', fig.width=1, fig.height=5}
+
+#creating a dataset with all whiffs in the game
+whiffs <- game|>
+  filter(pitchcall == "StrikeSwinging")
+
+#if else because if there are less than 2 datapoints the heat map won't compile
+if(nrow(whiffs) > 1){
+  overall_whiffs <- 
+  ggplot(data = whiffs, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_density_2d_filled(alpha = 0.5, show.legend = FALSE)+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs")+
+  coord_fixed(ratio = 1)
+}else{
+  #just creates a regular scatterplot of the whiffs
+  overall_whiffs <- 
+ggplot(data = whiffs, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_point()+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs")+
+  coord_fixed(ratio = 1)
+}
+
+```
+
+```{r fastball whiff heat map, echo= FALSE, message= FALSE, warning= FALSE, out.height= '75%', out.width = '100%', fig.width=1, fig.height=5}
+#creates a dataset with all fastball whiffs
+whiffs_fb <- whiffs |>
+  filter(taggedpitchtype == "Fastball" |
+         taggedpitchtype == "Sinker" |
+         taggedpitchtype == "Cutter")
+
+#if else because if there are less than 2 datapoints the heat map won't compile
+if(nrow(whiffs_fb) > 1){
+  fb_whiffs <- 
+ggplot(data = whiffs_fb, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_density_2d_filled(alpha = 0.5, show.legend = FALSE)+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs on Fastballs")+
+  coord_fixed(ratio = 1)
+}else{
+  #creates a regular scatterplot if less than two observations
+  fb_whiffs <- 
+ggplot(data = whiffs_fb, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_point()+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs on Fastballs")
+}
+```
+
+```{r off speed whiff heat map, echo= FALSE, message= FALSE, warning= FALSE, out.height= '75%', out.width = '100%', fig.width=1, fig.height=5}
+#dataframe with all whiffs on off speed
+whiffs_os <- whiffs |>
+  filter(taggedpitchtype == "ChangeUp" |
+         taggedpitchtype == "Splitter")
+
+#if else because heatmap won't compile with only 1 datapoint
+if(nrow(whiffs_os) > 1){
+  os_whiffs <- 
+ggplot(data = whiffs_os, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_density_2d_filled(alpha = 0.5, show.legend = FALSE)+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs on Offspeed")
+}else {
+  os_whiffs <- 
+ggplot(data = whiffs_os, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_point()+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs on Offspeed")+
+  coord_fixed(ratio = 1)
+}
+
+```
+
+```{r breaking ball whiff heat map, echo= FALSE, message= FALSE, warning= FALSE, out.height= '75%', out.width = '100%', fig.width=1, fig.height=5}
+#dataframe with all whiffs on breaking balls
+whiffs_bb <- whiffs |>
+  filter(taggedpitchtype == "Curveball" |
+         taggedpitchtype == "Slider")
+
+#if else because heatmap won't compile with one datapoint
+if(nrow(whiffs_bb) > 1){
+  bb_whiffs <-
+ggplot(data = whiffs_bb, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_density_2d_filled(alpha = 0.5, show.legend = FALSE)+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs on Breaking Balls")+
+  coord_fixed(ratio = 1)
+}else{
+  bb_whiffs <-
+ggplot(data = whiffs_bb, aes(x= as.numeric(platelocside), y= as.numeric(platelocheight)))+
+  scale_size(range = c(0.01,3))+
+  geom_rect(xmin= -0.83,xmax= 0.83,ymin= 1.5,ymax= 3.5, color = "black", 
+            fill = "transparent", size=0.7)+
+  geom_rect(xmin= -1.2,xmax= 1.2,ymin= 1.2,ymax= 3.8, color = "black", 
+            linetype = "dashed", fill = "transparent")+
+  geom_rect(xmin= -.6, xmax= .6, ymin= 1.8, ymax= 3.2, color= "black", 
+            linetype= "dashed", fill= "transparent")+
+  geom_segment(aes(x= -0.708, y= 0.15, xend= 0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= -0.708, yend= 0.15), size= 0.5, color= "black")+
+  geom_segment(aes(x= -0.708, y= 0.3, xend= 0, yend= 0.5), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0, y= 0.5, xend= 0.708, yend= 0.3), size = 0.5, color = "black")+
+  geom_segment(aes(x= 0.708, y= 0.3, xend= 0.708, yend= 0.15), size = 0.5, color = "black")+
+  coord_equal()+
+  scale_x_continuous(limits = c(-2.5,2.5))+
+  scale_y_continuous(limits = c(-0.5,5.5))+
+  theme(legend.position = 'bottom', axis.title = element_blank(), 
+        axis.ticks = element_blank(), axis.text = element_blank())+
+  geom_point()+
+  theme_bw()+
+  xlab(element_blank())+
+  ylab(element_blank())+
+  labs(title= "Whiffs on Breaking Balls")+
+  coord_fixed(ratio = 1)
+}
+```
+
+```{r pitch usage, echo= FALSE, message= FALSE, warning= FALSE, out.height= '50%', out.width = '50%'}
+
+#create new dataframe for pie chart
+  pie_game <- game |>
+    group_by(taggedpitchtype)|>
+    summarise(Count = n())
+
+#pie chart pitch usage %
+  usage_pie <- ggplot(pie_game,aes(x='',y=Count, fill= `taggedpitchtype`))+
+    geom_bar(stat='identity', color= "black")+
+    coord_polar('y',start = 0)+
+    scale_fill_manual(values=palette)+
+    theme_bw()+
+    theme(axis.text = element_blank(),panel.grid = element_blank(), 
+          legend.title = element_text(size= 8), legend.key.size = unit(1, "mm"))+
+    labs(fill= "Pitch Type")+
+    xlab('')+
+    ylab('')+
+    ggtitle('Outing Pitch Selection')
+
+
+#bar chart: pitch by count
+  usage_bar <- ggplot(game,aes(x=Count,fill=taggedpitchtype))+
+    geom_bar()+
+    scale_fill_manual(values=palette)+
+    theme_bw()+
+    theme(legend.position = 'none')+
+    labs( x="Count", y="", title="Pitch Selection by Count")
+```
+
+```{r avg velo chart, echo= FALSE, message= FALSE, warning= FALSE, out.width= '50%', out.height= '50%'}
+#new dataframe with average pitch velo
+velos_by_inning <- game|>
+  group_by(inning, taggedpitchtype) |>
+  summarize(avg = mean(RelSpeed, na.rm = TRUE))
+
+#velo per inning
+velo_inning <- ggplot(velos_by_inning, aes(x= inning, y= avg, color = taggedpitchtype))+
+  geom_line(size = 1.5)+
+  geom_point(size = 3, show.legend = FALSE)+
+  scale_color_manual(values = palette)+
+  theme_bw()+
+  theme(legend.position = "none")+
+  labs( x="Inning",
+      y="Velo",
+      color="Pitch Type",
+      title="Average Velo per Inning")
+```
+
+```{r pitch by pitch, fig.pos = "hold_position", echo = FALSE,warning=FALSE, fig.align="center", out.width='100%'}
+
+#creating pitch by pitch dataframe to print as a table
+  pbp <- game|>
+    mutate(PitchCount = row_number()) |>
+  
+  #creating in zone variable
+    mutate(IZ = ifelse(as.numeric(platelocside) >= -0.83 & as.numeric(platelocside) <= 0.83 &
+         as.numeric(platelocheight) >= 1.5 & as.numeric(platelocheight) <=
+         3.5,
+         "Y", "N"))|>
+  
+  #creating a new result variable to track what happened
+  mutate(Result = ifelse(pitchcall == 'StrikeSwinging','Strike Swinging',
+                  ifelse(playresult == 'Single', 'Single',
+                  ifelse(playresult == 'Double', 'Double' ,
+                  ifelse(playresult == 'Triple', 'Triple' ,
+                  ifelse(playresult == 'HomeRun', 'Homerun' ,
+                  ifelse(playresult == 'Sacrifice' | playresult == 'Out' | 
+                         playresult == 'FieldersChoice', 'Out',
+                  ifelse(playresult == 'Error', 'Error',
+                  ifelse(pitchcall == 'FoulBall' | pitchcall == 'FoulBallNotFieldable' | 
+                         pitchcall == 'FoulBallFieldable','Foul Ball','Strike Taken')))))))))|>
+  
+  #choosing which variables to keep
+  select(PitchCount, batter, inning, Count, taggedpitchtype, RelSpeed,
+            SpinRate, tilt, InducedVertBreak, HorzBreak, RelHeight, RelSide,
+            Extension, Result, IZ, 
+            ExitSpeed)|>
+  
+  #rounding to hundreths place
+  mutate_if(is.numeric, ~ round(., 1))
+
+  #giving names to variables 
+  names(pbp) <- c("Pitch No.", "Batter", "Inning", "Count", "Pitch Type", "Velo", "Spin",
+                  "Tilt","IVB", "HB", "Height", "Side", "Extension", "Pitch Result", "IZ",
+                  "EV")
+  
+```
+
+```{r page 1, echo= FALSE, message= FALSE, warning= FALSE, fig.height= 5.95}
+#game line table
+gamescores %>%
+    kbl(format = "latex", digits = 3, booktabs = TRUE, linesep = "") %>%
+    kable_paper("striped", html_font = "Comic Sans") %>%
+    row_spec(0, background = "#F1B92D", bold = TRUE) %>%
+    kable_styling(latex_options = c("scale_down", "hold_position"), 
+                  full_width = FALSE,font_size = 15,position = "center")
+
+#pitch breakdown table
+pitchbreakdown %>%
+    kbl(format = "latex", digits = 3, booktabs = TRUE, linesep = "") %>%
+    kable_paper("striped", html_font = "Comic Sans") %>%
+    row_spec(0, background = "#F1B92D", bold = TRUE) %>%
+    kable_styling(latex_options = c("scale_down", "hold_position"), 
+                  full_width = FALSE,font_size = 8,position = "center")
+
+#break chart, k zone, and usage charts
+ggarrange(breakChart,strikezone, usage_pie, usage_bar,
+          ncol= 2, nrow=2, common.legend=TRUE, legend='bottom')
+```
+
+```{r page 2.1, echo= FALSE, message= FALSE, warning= FALSE, fig.height= 6, fig.width= 11}
+#release chart and avg velo 
+grid.arrange(relChart, velo_inning, ncol= 2)
+```
+
+```{r page 2.2, echo= FALSE, message= FALSE, warning= FALSE, fig.width= 8, fig.height= 6}
+#arranging the whiffs
+grid.arrange(overall_whiffs, fb_whiffs, os_whiffs, bb_whiffs, ncol= 2)
+```
+
+```{r page 3, echo= FALSE, message= FALSE, warning= FALSE}
+#pitch by pitch breakdown
+kbl(pbp, format = "latex", digits = 3, booktabs = TRUE, linesep = "") %>%
+    column_spec(15, color = ifelse(pbp$IZ == "Y", "green", "red")) %>%
+    row_spec(0, background = "#F1B92D", bold = TRUE) %>%
+    kable_styling(latex_options = c("striped", "scale_down"),
+                  full_width = FALSE, font_size = 15)
+```
