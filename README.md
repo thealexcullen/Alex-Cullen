@@ -4,3 +4,4 @@ We use these to give guys progress updates and an easy to read report about thei
 
 The iz_work.r is very very early work for a project we are working on at Mizzou Baseball. 
 We are trying to gauge command within our pitchers and give a score for each pitch corresponding with a location target. 
+As of right now I am just playing with some simple distance and score calculations to get an idea of our best command guys.
