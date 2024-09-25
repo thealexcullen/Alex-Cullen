@@ -14,4 +14,5 @@ c_example.c is just a quick example I had to make for class one day, and I figur
 It is a simple program, but I believe it is important to show that I do have knowledge of C.
 
 The folder Java Game contains everything I used to create a basic Mario-esque platform game in java.
-It was for a school project, and I thoroughly enjoyed it. There is more info within the folder.
+It was for a school project, and I thoroughly enjoyed it. I used processing for java to create the game locally. 
+The files for my actual code end in .pde, the majority of the folder is images used for the sprites.
