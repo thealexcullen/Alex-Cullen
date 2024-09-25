@@ -9,3 +9,6 @@ As of right now I am just playing with some simple distance and score calculatio
 
 The appy_work.r is just a collection of little side projects or data searches I did while working for my Appy League Team.
 This mostly includes stuff my coaches would ask me or graphics he requested I produce.
+
+c_example.c is just a quick example I had to make for class one day, and I figured it was a good way to show my C knowledge.
+It is a simple program, but I believe it is important to show that I do have knowledge of C.
