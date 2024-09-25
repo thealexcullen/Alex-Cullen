@@ -11,7 +11,7 @@ The appy_work.r is just a collection of little side projects or data searches I 
 This mostly includes stuff my coaches would ask me or graphics he requested I produce.
 
 c_example.c is just a quick example I had to make for class one day, and I figured it was a good way to show my C knowledge.
-It is a simple program, but I believe it is important to show that I do have knowledge of C.
+It is a simple program, but I believe it is important to show that I do have experience using C.
 
 The folder Java Game contains everything I used to create a basic Mario-esque platform game in java.
 It was for a school project, and I thoroughly enjoyed it. I used processing for java to create the game locally. 
