@@ -7,7 +7,7 @@ header-includes:
  - \newfontfamily\headingfont{NCAA_Missouri_Tigers.otf}
 fontsize: 10pt
 params:
-  player: "Jacobi, Kaden"
+  player: "ToBeNamedLater, Player"
 ---
 
 
@@ -22,18 +22,7 @@ library(gridExtra)
 library(caret)
 library(ggpubr)
 
-#game <- read.csv("C:/Users/alexi/OneDrive/Documents/Mizzou Baseball Spring 2024/Reports/Post Outing Reports/spring_2024TM_stadium_local.csv")
-
-#game <- read.csv("C:/Users/alexi/OneDrive/Documents/Mizzou Baseball Spring 2024/Reports/Post Outing Reports/allSEC.csv")
-
-#game <- params$file
-
-#game <- read.csv("C:/Users/alexi/downloads/jacobi fall.csv")
-#View(game)
-
-game <- read.csv("C:/Users/alexi/OneDrive/Documents/Mizzou Baseball Spring 2024/F2024 Scrimmages/week3.csv")
-
-#game <- read.csv("C:/Users/alexi/OneDrive/Documents/Tri-State 2024/all_appy_games.csv")
+game <- read.csv("file_path.csv")
 
 #Rearranging the name
 name_parts <- strsplit(params$player, ", ")[[1]]
@@ -82,8 +71,6 @@ Player=params$player
 #filtering game to only include the pitcher
 game = game %>%
    filter(pitcher==params$player)
-
-#View(game)
 
 game$Single = ifelse(game$playresult == "Single",1,0)
 game$Double = ifelse(game$playresult == "Double",1,0)
@@ -151,7 +138,6 @@ gamescores = game %>%
 
 #assigning a new dataframe to manipulate
 dat <- game
-#View(dat)
 
 #creating necessary variables in dat
 dat$"PitchCount"=ifelse(dat$pitcher!="",1,0)
@@ -554,6 +540,7 @@ velo_inning <- ggplot(velos_by_inning, aes(x= inning, y= avg, color = taggedpitc
   
   #creating a new result variable to track what happened
   mutate(Result = ifelse(pitchcall == 'StrikeSwinging','Strike Swinging',
+                  ifelse(pitchcall == 'BallCalled', 'Ball',
                   ifelse(playresult == 'Single', 'Single',
                   ifelse(playresult == 'Double', 'Double' ,
                   ifelse(playresult == 'Triple', 'Triple' ,
